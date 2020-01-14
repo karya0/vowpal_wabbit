@@ -126,7 +126,7 @@ int COST_FUNCTION = 0;
 // 3: moving rate learning
 int PRED_ONE_OVER = 0;
 int FIXED_DELAY = 0;
-int LEARNING_MS = 0;  // prediction window in ms
+float LEARNING_MS = 0;  // prediction window in ms
 int TIMING = 0;       // measure vw timing
 int DEBUG = 0;        // print debug messages
 int NO_HARVESTING = 0;
@@ -136,8 +136,7 @@ int PRIMARY_SIZE = 0;
 int FEEDBACK_MS = 0;
 int FEEDBACK = 0;
 
-int SLEEP_MS = 0;
-int SLEEP_US = 0;
+float SLEEP_MS = 0;
 std::wstring MODE = L"";
 int dropBadFeatures = 0;
 int read_cpu_sleep_us = 0;
@@ -209,7 +208,7 @@ void __cdecl process_args(int argc, __in_ecount(argc) WCHAR* argv[])
     }
     else if (0 == ::_wcsnicmp(argv[0], ARG_LEARNING_MS, ARRAY_SIZE(ARG_LEARNING_MS)))
     {
-      LEARNING_MS = _wtoi(argv[1]);
+      LEARNING_MS = _wtof(argv[1]);
     }
     else if (0 == ::_wcsnicmp(argv[0], ARG_TIMING, ARRAY_SIZE(ARG_TIMING)))
     {
@@ -237,8 +236,7 @@ void __cdecl process_args(int argc, __in_ecount(argc) WCHAR* argv[])
     }
     else if (0 == ::_wcsnicmp(argv[0], ARG_SLEEP_MS, ARRAY_SIZE(ARG_SLEEP_MS)))
     {
-      SLEEP_MS = _wtoi(argv[1]);
-      SLEEP_US = SLEEP_MS * 1000;
+      SLEEP_MS = _wtof(argv[1]);
     }
     else if (0 == ::_wcsnicmp(argv[0], ARG_LEARNING_ALGO, ARRAY_SIZE(ARG_LEARNING_ALGO)))
     {
@@ -541,7 +539,7 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
 {
   verbose = FALSE;
   process_args(argc, argv);
-  int sleep_us = SLEEP_MS * 1000;
+  int sleep_us = (int) (SLEEP_MS * 1000);
 
   /************************/
   // initialize HVM agent
@@ -584,7 +582,7 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
 
   int invoke_learning = 0;
   int first_window = 1;
-  int learning_us = LEARNING_MS * 1000;
+  int learning_us = (int)(LEARNING_MS * 1000);
   int feedback_us = FEEDBACK_MS * 1000;
 
   int count = 0;
@@ -742,13 +740,13 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
 
       newPrimaryCores = std::min(primaryBusyCores + bufferSize, (INT32)primary.maxCores);  // re-compute primary size
 
-      records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
-          primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(), 0,
-          0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel};
-      ASSERT(numLogEntries < MAX_RECORDS);
-
       if (newPrimaryCores != primary.curCores)
       {
+        records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
+            primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(),
+            0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel};
+        ASSERT(numLogEntries < MAX_RECORDS);
+
         updateCores(newPrimaryCores, systemBusyMask);
         HVMAgent_SpinUS(sleep_us);  // sleep for 1ms for cpu affinity call (if issued) to take effects
         count++;
@@ -1263,20 +1261,23 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
         }
       }
 
+<<<<<<< HEAD
       if (NO_PRED)
       {
         pred_alloc = newPrimaryCores;
         newPrimaryCores = primary.maxCores;
       }
 
+=======
+      /****** update CPU affinity ******/
+      if (newPrimaryCores != primary.curCores)
+      {
+>>>>>>> Less frequent logging; misc.
       records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
           primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(),
           min, max, avg, stddev, med, pred, newPrimaryCores, cpu_max_observed, overpredicted, safeguard, feedback_max,
           updateModel};
 
-      /****** update CPU affinity ******/
-      if (newPrimaryCores != primary.curCores)
-      {
         if (DEBUG)
           cout << "<debug> newPrimaryCores = " << newPrimaryCores << endl;
         updateCores(newPrimaryCores, systemBusyMask);
@@ -1298,6 +1299,8 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
       // HVMAgent_SpinUS(SLEEP_US); // sleep for 1ms for cpu affinity call (if issued) to take effect
     }
   }
+
+  updateCores(primary.maxCores, systemBusyMask);
 
   // write logs to file
   writeLogs();

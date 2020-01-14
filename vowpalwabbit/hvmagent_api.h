@@ -295,7 +295,7 @@ struct VMInfo
 
         if (!primary)
         {
-            CHECK_CALL(HVMAgent_UpdateHVMCoresUsingMask(ipiGroup, curCoreMask), "");
+            CHECK_CALL(HVMAgent_UpdateHVMCoresUsingMask(ipiGroup, curCoreMask), "Failed to update hvm cores using mask");
         }
         return S_OK;
     }
