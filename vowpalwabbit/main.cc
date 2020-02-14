@@ -1261,22 +1261,19 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
         }
       }
 
-<<<<<<< HEAD
       if (NO_PRED)
       {
         pred_alloc = newPrimaryCores;
         newPrimaryCores = primary.maxCores;
       }
 
-=======
       /****** update CPU affinity ******/
       if (newPrimaryCores != primary.curCores)
       {
->>>>>>> Less frequent logging; misc.
-      records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
-          primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(),
-          min, max, avg, stddev, med, pred, newPrimaryCores, cpu_max_observed, overpredicted, safeguard, feedback_max,
-          updateModel};
+        records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
+            primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(),
+            min, max, avg, stddev, med, pred, newPrimaryCores, cpu_max_observed, overpredicted, safeguard, feedback_max,
+            updateModel};
 
         if (DEBUG)
           cout << "<debug> newPrimaryCores = " << newPrimaryCores << endl;
