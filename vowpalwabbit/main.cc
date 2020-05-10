@@ -411,6 +411,7 @@ struct Record
   int safeguard;
   int feedback_max;
   int updateModel;
+  BucketId bucketId = Bucket6;
 };
 
 struct RecordCPU
@@ -439,7 +440,7 @@ void writeLogs()
     fprintf(output_fp,
         "iteration,time_sec,hvm_busy_cores,hvm_cores,primary_busy_cores,primary_cores,primary_cores_mask,system_busy_"
         "mask_raw,f_min,f_max,f_avg,f_stddev,f_med,"
-        "pred_peak,upper_bound,cpu_max,overpredicted,safeguard,feedback_max,update_model\n");
+        "pred_peak,upper_bound,cpu_max,overpredicted,safeguard,feedback_max,update_model,bucketId\n");
     fflush(output_fp);
 
     // ASSERT(SetConsoleCtrlHandler(consoleHandler, TRUE));
@@ -448,15 +449,15 @@ void writeLogs()
     {
       Record r = records[i];
       if (DEBUG_PEAK)
-        fprintf(output_fp, "%d,%.6lf,%d,%d,%d,%d,%s,%s,%d,%d,%lf,%lf,%lf,%d,%d,%d,%d,%d,%d,%d\n", r.updateCount,
+        fprintf(output_fp, "%d,%.6lf,%d,%d,%d,%d,%s,%s,%d,%d,%lf,%lf,%lf,%d,%d,%d,%d,%d,%d,%d,%s\n", r.updateCount,
             r.time, r.hvmBusy, r.hvmCores, r.primaryBusy, r.primaryCores, r.primaryCoresMask.c_str(),
             r.systemBusyMask.c_str(), r.min, r.max, r.avg, r.stddev, r.med, r.pred, r.newPrimaryCores, r.cpu_max,
-            r.overpredicted, r.safeguard, r.feedback_max, r.updateModel);
+            r.overpredicted, r.safeguard, r.feedback_max, r.updateModel, BucketIdMap[r.bucketId].c_str());
       else
-        fprintf(output_fp, "%d,%.3lf,%d,%d,%d,%d,%s,%s,%d,%d,%lf,%lf,%lf,%d,%d,%d,%d,%d,%d,%d\n", r.updateCount,
+        fprintf(output_fp, "%d,%.3lf,%d,%d,%d,%d,%s,%s,%d,%d,%lf,%lf,%lf,%d,%d,%d,%d,%d,%d,%d,%s\n", r.updateCount,
             r.time, r.hvmBusy, r.hvmCores, r.primaryBusy, r.primaryCores, r.primaryCoresMask.c_str(),
             r.systemBusyMask.c_str(), r.min, r.max, r.avg, r.stddev, r.med, r.pred, r.newPrimaryCores, r.cpu_max,
-            r.overpredicted, r.safeguard, r.feedback_max, r.updateModel);
+            r.overpredicted, r.safeguard, r.feedback_max, r.updateModel, BucketIdMap[r.bucketId].c_str());
     }
 
     fflush(output_fp);
@@ -719,11 +720,12 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
           break;  // log max from every 2ms
       }
 
+      BucketId bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
       if (LOGGING)
       {
         records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
             primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(),
-            0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel};
+            0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel, bucketId};
         ASSERT(numLogEntries < MAX_RECORDS);
       }
     }
