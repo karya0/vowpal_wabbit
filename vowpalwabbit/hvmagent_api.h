@@ -27,10 +27,18 @@
     } \
 } while(0);
 
+#define CHECK_EQ(expected, exp) do { \
+    auto result = (exp); \
+    if (expected != result) { \
+        printf("FATAL: %s:%d " #exp ": expected: 0x%lx, got: 0x%lx\n", __FILE__, __LINE__, expected, result); \
+        return E_FAIL; \
+    } \
+} while(0);
+
 #define CHECK_CALL(exp, msg) do { \
     int status = (exp); \
     if (FAILED(status)) { \
-        printf("FATAL: " msg " (error code: %d)\n", status); \
+        printf("FATAL: " msg " (error code: 0x%lx)\n", status); \
         return status; \
     } \
 } while(0);
@@ -177,11 +185,12 @@ struct CpuWaitTimeBucketCounters
         PDH_FMT_COUNTERVALUE DisplayValue;
         const std::wstring path = L"\\Hyper-V Hypervisor Partition(" + VmName + L":hvpt)\\Virtual Processors";
 
-        CHECK(PdhOpenQuery(NULL, 0, &query) == ERROR_SUCCESS);
-        CHECK(PdhAddCounter(query, path.c_str(), 0, &counter) == ERROR_SUCCESS);
-        CHECK(PdhCollectQueryData(query) == ERROR_SUCCESS);
+        std::wcout << path << std::endl;
+        CHECK_EQ(ERROR_SUCCESS, PdhOpenQuery(NULL, 0, &query));
+        CHECK_EQ(ERROR_SUCCESS, PdhAddCounter(query, path.c_str(), 0, &counter));
+        CHECK_EQ(ERROR_SUCCESS, PdhCollectQueryData(query));
 
-        CHECK(ERROR_SUCCESS == PdhGetFormattedCounterValue(&counter,
+        CHECK_EQ(ERROR_SUCCESS, PdhGetFormattedCounterValue(counter,
                                                            PDH_FMT_LARGE | PDH_FMT_NOCAP100,
                                                            &CounterType,
                                                            &DisplayValue));
@@ -195,6 +204,7 @@ struct CpuWaitTimeBucketCounters
 
     HRESULT init(const std::wstring& VmName)
     {
+        PDH_STATUS status;
         CHECK_CALL(ComputeNumVcpus(VmName), "Failed to compute num vcpus");
 
         // Open a query object.
@@ -202,6 +212,7 @@ struct CpuWaitTimeBucketCounters
 
         for (size_t vp = 0; vp < NumVcpus; vp++)
         {
+            std::vector<std::wstring> perVpCounterPath;
             std::vector<HCOUNTER> perVpCounterHandles;
             std::vector<UINT64> perVpCounterValues;
 
@@ -214,12 +225,19 @@ struct CpuWaitTimeBucketCounters
                     prefix + VmName + L":hv vp " + std::to_wstring(vp)
                     + L")\\CPU Wait Time Bucket " + bucket.second;
 
-                CHECK(PdhAddCounter(query, path.c_str(), 0, &counter) == ERROR_SUCCESS);
+                status = PdhAddCounter(query, path.c_str(), 0, &counter);
+                if (status != ERROR_SUCCESS)
+                {
+                    std::wcout << "Error adding counter " << path << ": 0x" << std::hex << status << std::endl;
+                    return E_FAIL;
+                }
 
+                perVpCounterPath.push_back(path);
                 perVpCounterHandles.push_back(counter);
                 perVpCounterValues.push_back(0);
             }
 
+            CounterPaths.push_back(perVpCounterPath);
             CounterHandles.push_back(perVpCounterHandles);
             CounterValues.push_back(perVpCounterValues);
         }
@@ -234,7 +252,7 @@ struct CpuWaitTimeBucketCounters
         DWORD CounterType;
         PDH_FMT_COUNTERVALUE DisplayValue;
 
-        CHECK(PdhCollectQueryData(query) == ERROR_SUCCESS);
+        CHECK_EQ(ERROR_SUCCESS, PdhCollectQueryData(query));
 
         TotalSamples = 0;
 
@@ -245,10 +263,15 @@ struct CpuWaitTimeBucketCounters
 
             for (size_t vp = 0; vp < NumVcpus; vp++)
             {
-                CHECK(ERROR_SUCCESS == PdhGetFormattedCounterValue(CounterHandles[vp][bucketId],
-                                                                   PDH_FMT_LARGE | PDH_FMT_NOCAP100,
-                                                                   &CounterType,
-                                                                   &DisplayValue));
+                PDH_STATUS status = PdhGetFormattedCounterValue(CounterHandles[vp][bucketId],
+                                                                PDH_FMT_LARGE | PDH_FMT_NOCAP100,
+                                                                &CounterType,
+                                                                &DisplayValue);
+                if (status != ERROR_SUCCESS)
+                {
+                    std::wcout << "Error quering counter '" << CounterPaths[vp][bucketId] << "': 0x" << std::hex << status << std::endl;
+                    return E_FAIL;
+                }
 
                 CounterValues[vp][bucketId] = DisplayValue.largeValue;
                 CounterValuesPerBucket[bucketId] += DisplayValue.largeValue;
@@ -283,6 +306,7 @@ struct CpuWaitTimeBucketCounters
     PDH_STATUS pdhStatus;
     UINT64 NumVcpus;
 
+    std::vector<std::vector<std::wstring>> CounterPaths;
     std::vector<std::vector<HCOUNTER>> CounterHandles;
     std::vector<std::vector<UINT64>> CounterValues;
 
