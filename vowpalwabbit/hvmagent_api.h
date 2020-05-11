@@ -458,7 +458,13 @@ struct VMInfo
 
         curCoreMask &= ~result;
 
-        CHECK_CALL(HVMAgent_UpdateHVMCoresUsingMask(ipiGroup, curCoreMask), "");
+        HRESULT Result = HVMAgent_UpdateHVMCoresUsingMask(ipiGroup, curCoreMask);
+        if (FAILED(Result))
+        {
+            wprintf(L"Error extracting cores; new curCoreMask: 0x%lx output Mask: 0x%lx: 0x%lx\n",
+                curCoreMask, result, Result);
+            return Result;
+        }
 
         *outputMask = result;
         return S_OK;
@@ -503,7 +509,13 @@ struct VMInfo
 
         if (!primary)
         {
-            CHECK_CALL(HVMAgent_UpdateHVMCoresUsingMask(ipiGroup, curCoreMask), "");
+            HRESULT Result = HVMAgent_UpdateHVMCoresUsingMask(ipiGroup, curCoreMask);
+            if (FAILED(Result))
+            {
+                wprintf(L"Error adding cores to secondary; mask 0x%lx, new curCoreMask: 0x%lx: 0x%lx\n", mask,
+                    curCoreMask, Result);
+                return Result;
+            }
         }
         return S_OK;
     }
