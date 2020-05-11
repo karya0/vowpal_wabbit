@@ -185,7 +185,6 @@ struct CpuWaitTimeBucketCounters
         PDH_FMT_COUNTERVALUE DisplayValue;
         const std::wstring path = L"\\Hyper-V Hypervisor Partition(" + VmName + L":hvpt)\\Virtual Processors";
 
-        std::wcout << path << std::endl;
         CHECK_EQ(ERROR_SUCCESS, PdhOpenQuery(NULL, 0, &query));
         CHECK_EQ(ERROR_SUCCESS, PdhAddCounter(query, path.c_str(), 0, &counter));
         CHECK_EQ(ERROR_SUCCESS, PdhCollectQueryData(query));
