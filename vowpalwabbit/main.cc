@@ -445,19 +445,22 @@ void writeLogs()
 
     // ASSERT(SetConsoleCtrlHandler(consoleHandler, TRUE));
 
+    cout << "logs written" << endl;
     for (size_t i = 0; i < numLogEntries; i++)
     {
       Record r = records[i];
+      const std::string& bucketIdStr = BucketIdMapA[r.bucketId];
+
       if (DEBUG_PEAK)
         fprintf(output_fp, "%d,%.6lf,%d,%d,%d,%d,%s,%s,%d,%d,%lf,%lf,%lf,%d,%d,%d,%d,%d,%d,%d,%s\n", r.updateCount,
             r.time, r.hvmBusy, r.hvmCores, r.primaryBusy, r.primaryCores, r.primaryCoresMask.c_str(),
             r.systemBusyMask.c_str(), r.min, r.max, r.avg, r.stddev, r.med, r.pred, r.newPrimaryCores, r.cpu_max,
-            r.overpredicted, r.safeguard, r.feedback_max, r.updateModel, BucketIdMap[r.bucketId].c_str());
+            r.overpredicted, r.safeguard, r.feedback_max, r.updateModel, bucketIdStr.c_str());
       else
         fprintf(output_fp, "%d,%.3lf,%d,%d,%d,%d,%s,%s,%d,%d,%lf,%lf,%lf,%d,%d,%d,%d,%d,%d,%d,%s\n", r.updateCount,
             r.time, r.hvmBusy, r.hvmCores, r.primaryBusy, r.primaryCores, r.primaryCoresMask.c_str(),
             r.systemBusyMask.c_str(), r.min, r.max, r.avg, r.stddev, r.med, r.pred, r.newPrimaryCores, r.cpu_max,
-            r.overpredicted, r.safeguard, r.feedback_max, r.updateModel, BucketIdMap[r.bucketId].c_str());
+            r.overpredicted, r.safeguard, r.feedback_max, r.updateModel, bucketIdStr.c_str());
     }
 
     fflush(output_fp);
@@ -621,6 +624,7 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
   int safeguard = 0;
   int prevSafeguard = 0;
   int updateModel = 0;
+  BucketId bucketId;
 
   int buffer_empty_consecutive_count = 0;
   // initialize vw
@@ -720,9 +724,9 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
           break;  // log max from every 2ms
       }
 
-      BucketId bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
       if (LOGGING)
       {
+        bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
         records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
             primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(),
             0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel, bucketId};
@@ -759,9 +763,10 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
 
       newPrimaryCores = std::min(primaryBusyCores + bufferSize, (INT32)primary.maxCores);  // re-compute primary size
 
+      bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
       records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
           primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(), 0,
-          0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel};
+          0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel, bucketId};
       ASSERT(numLogEntries < MAX_RECORDS);
 
       if (newPrimaryCores != primary.curCores)
@@ -794,9 +799,10 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
 
       if (newPrimaryCores != primary.curCores)
       {
+        bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
         records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
             primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(),
-            0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel};
+            0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel, bucketId};
         ASSERT(numLogEntries < MAX_RECORDS);
 
         updateCores(newPrimaryCores, systemBusyMask);
@@ -880,9 +886,10 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
             // give all cores back to primary for mode3
             newPrimaryCores = primary.maxCores;  // primary.maxCores - hvm.curCores;  // max # cores given to primary
 
+            bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
             records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
                 primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(),
-                bitset<64>(systemBusyMask).to_string(), 0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel};
+                bitset<64>(systemBusyMask).to_string(), 0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel, bucketId};
             ASSERT(numLogEntries < MAX_RECORDS);
 
             if (newPrimaryCores != primary.curCores)
@@ -918,9 +925,10 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
             newPrimaryCores = std::min(newPrimaryCores, (INT32)primary.maxCores);
             // newPrimaryCores = std::max(newPrimaryCores, pred);
 
+            bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
             records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
                 primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(),
-                bitset<64>(systemBusyMask).to_string(), 0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel};
+                bitset<64>(systemBusyMask).to_string(), 0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel, bucketId};
             ASSERT(numLogEntries < MAX_RECORDS);
 
             // update hvm size
@@ -1295,10 +1303,11 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
       }
 
 
+      bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
       records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
           primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(),
           min, max, avg, stddev, med, pred, newPrimaryCores, cpu_max_observed, overpredicted, safeguard, feedback_max,
-          updateModel};
+          updateModel, bucketId};
 
       /****** update CPU affinity ******/
       if (NO_PRED)

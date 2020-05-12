@@ -57,8 +57,6 @@ typedef struct _CPU_SET
 #define CPU_SET UINT64
 #endif
 
-struct CpuWaitTimeBucketCounters;
-
 typedef struct _CpuInfo
 {
     CPU_SET MinRootMask;
@@ -152,6 +150,24 @@ typedef enum _BucketId
     Bucket6
 } BucketId;
 
+static std::unordered_map<BucketId, std::string> BucketIdMapA =
+{
+    {BucketX7, "X7"},
+    {BucketX6, "X6"},
+    {BucketX5, "X5"},
+    {BucketX4, "X4"},
+    {BucketX3, "X3"},
+    {BucketX2, "X2"},
+    {BucketX1, "X1"},
+    {Bucket0,  "0"},
+    {Bucket1,  "1"},
+    {Bucket2,  "2"},
+    {Bucket3,  "3"},
+    {Bucket4,  "4"},
+    {Bucket5,  "5"},
+    {Bucket6,  "6"}
+};
+
 static std::unordered_map<BucketId, std::wstring> BucketIdMap =
 {
     {BucketX7, L"X7"},
@@ -206,6 +222,7 @@ struct CpuWaitTimeBucketCounters
         PDH_STATUS status;
         CHECK_CALL(ComputeNumVcpus(VmName), "Failed to compute num vcpus");
 
+        std::wcout << "Num vcpus: " << NumVcpus << std::endl;
         // Open a query object.
         CHECK(PdhOpenQuery(NULL, 0, &query) == ERROR_SUCCESS);
 
@@ -277,7 +294,7 @@ struct CpuWaitTimeBucketCounters
 
                 TotalSamples += DisplayValue.largeValue;
             }
-      }
+        }
         return S_OK;
     }
 
@@ -292,7 +309,7 @@ struct CpuWaitTimeBucketCounters
 
             accumulativeCount += CounterValuesPerBucket[bucketId];
 
-            if (accumulativeCount >= TotalSamples * percent)
+            if (accumulativeCount >= TotalSamples * percent / 100.0)
             {
                 return bucketId;
             }
@@ -309,7 +326,7 @@ struct CpuWaitTimeBucketCounters
     std::vector<std::vector<HCOUNTER>> CounterHandles;
     std::vector<std::vector<UINT64>> CounterValues;
 
-    std::vector<UINT64> CounterValuesPerBucket;
+    std::unordered_map<BucketId, UINT64> CounterValuesPerBucket;
 
     UINT64 TotalSamples;
 };
@@ -531,12 +548,12 @@ struct VMInfo
 
     BucketId GetCpuWaitTimePercentileBucketId(const std::wstring& fullVmName, double percentile)
     {
-        return cpuWaitTimeBucketCounters[fullVmName]->GetPercentile(percentile);
+      return cpuWaitTimeBucketCounters[fullVmName]->GetPercentile(percentile);
     }
 
     BucketId GetCpuWaitTimePercentileBucketId(double percentile)
     {
-        return cpuWaitTimeBucketCounters[fullVmNames[0]]->GetPercentile(percentile);
+        return GetCpuWaitTimePercentileBucketId(fullVmNames[0], percentile);
     }
 
     UINT32 curCores;
