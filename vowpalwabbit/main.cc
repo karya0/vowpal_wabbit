@@ -1136,18 +1136,20 @@ int __cdecl wmain(int argc, __in_ecount(argc) WCHAR* argv[])
         us_elapsed = duration_cast<microseconds>(stop - start);
         if (us_elapsed.count() >= delay_us)
           break;  // log max from delay_us
+
+        if ((mode == IPI || mode == IPI_HOLES) && primaryCores < (primaryBusyCores + bufferSize))
+          break;
       }
 
       newPrimaryCores = std::min(primaryBusyCores + bufferSize, (INT32)primary.maxCores);  // re-compute primary size
 
-      // bucketId = primary.GetCpuWaitTimePercentileBucketId(99);
-      records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
-          primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(), 0,
-          0, 0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel, bucketId};
-      ASSERT(numLogEntries < MAX_RECORDS);
-
       if (newPrimaryCores != primary.curCores)
       {
+        records[numLogEntries++] = {count, timer.ElapsedUS() / 1000000.0, hvmBusyCores, hvmCores, primaryBusyCores,
+            primaryCores, bitset<64>(primary.masks[primaryCores]).to_string(), bitset<64>(systemBusyMask).to_string(), 0,
+            0, 0, 0, 0, 0, 0, 0, newPrimaryCores, max, 0, 0, 0, updateModel, bucketId};
+        ASSERT(numLogEntries < MAX_RECORDS);
+
         updateCores(newPrimaryCores, systemBusyMask);
         HVMAgent_SpinUS(sleep_us);  // sleep for 1ms for cpu affinity call (if issued) to take effects
         count++;
